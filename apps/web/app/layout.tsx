@@ -8,7 +8,12 @@ const orbitron = Orbitron({ subsets: ["latin"], variable: "--font-orbitron" });
 
 export const metadata = {
   title: "ASDesigns",
-  description: "ASDesigns — Fusing Aesthetics and Functionality, One Pixel at a Time.",
+  description:
+    "ASDesigns — Fusing Aesthetics and Functionality, One Pixel at a Time.",
+  icons: {
+    icon: "/logo.jpg",
+    apple: "/logo.jpg",
+  },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
