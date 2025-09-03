@@ -19,7 +19,7 @@ import {
 } from "@mui/material";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
+import { API_URL } from "../lib/config";
 import { ContactMessageSchema } from "@asdesigns/shared";
 
 type FormValues = z.input<typeof ContactMessageSchema>;
@@ -77,7 +77,7 @@ export default function Contact() {
     setStatus("idle");
     try {
       const payload = ContactMessageSchema.parse(values); // runs all transforms/refines
-      const res = await fetch("http://localhost:4000/contact", {
+      const res = await fetch(`${API_URL}/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -15,6 +15,7 @@ const EnvSchema = z.object({
   SMTP_PASS: z.string().min(1),
   MAIL_FROM: z.string().min(3),
   MAIL_TO: z.string().min(3),
+  WEB_ORIGIN: z.string().url(),
 });
 
 const parsed = EnvSchema.safeParse(process.env);

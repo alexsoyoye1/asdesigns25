@@ -1,3 +1,4 @@
+import { env } from "./env";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -7,7 +8,7 @@ import contactRouter from "./routes/contact";
 
 const app = express();
 app.use(helmet());
-app.use(cors({ origin: "http://localhost:3000", credentials: true }));
+app.use(cors({ origin: env.WEB_ORIGIN, credentials: true }));
 app.use(express.json());
 app.use(morgan("dev"));
 
