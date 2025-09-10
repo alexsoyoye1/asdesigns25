@@ -1,23 +1,7 @@
-import mongoose, {
-  Schema,
-  model,
-  models,
-  type Model,
-  type Document,
-} from "mongoose";
+// apps/api/src/models/User.ts
+import { Schema, model, models, InferSchemaType } from "mongoose";
 
-export interface IUser {
-  name: string;
-  email: string;
-  passwordHash: string;
-  role: "admin" | "employee";
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-export type UserDocument = Document & IUser;
-
-const userSchema = new Schema<IUser>(
+const userSchema = new Schema(
   {
     name: { type: String, required: true },
     email: { type: String, unique: true, required: true, index: true },
@@ -27,8 +11,8 @@ const userSchema = new Schema<IUser>(
   { timestamps: true }
 );
 
-const User: Model<UserDocument> =
-  (models.User as Model<UserDocument>) ||
-  model<UserDocument>("User", userSchema);
+export type User = InferSchemaType<typeof userSchema>;
 
-export default User;
+// No generic Model<T> here — let Mongoose infer, avoids overload clashes
+const UserModel = models.User || model("User", userSchema);
+export default UserModel;

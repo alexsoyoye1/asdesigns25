@@ -1,34 +1,22 @@
-import { Schema, model, models, type Model, type Document } from "mongoose";
+import { Schema, model, models, InferSchemaType } from "mongoose";
 
-export interface IContactMessage {
-  name: string;
-  email: string;
-  message: string;
-  phone?: string;
-  website?: string;
-  budgetAmount?: number;
-  currency?: "NGN" | "USD" | "GBP";
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-export type ContactMessageDocument = Document & IContactMessage;
-
-const contactMessageSchema = new Schema<IContactMessage>(
+const contactMessageSchema = new Schema(
   {
     name: { type: String, required: true },
     email: { type: String, required: true },
     message: { type: String, required: true },
-    phone: String,
-    website: String,
-    budgetAmount: Number,
+    phone: { type: String },
+    website: { type: String },
+    budgetAmount: { type: Number },
     currency: { type: String, enum: ["NGN", "USD", "GBP"] },
   },
   { timestamps: true }
 );
 
-const ContactMessage: Model<ContactMessageDocument> =
-  (models.ContactMessage as Model<ContactMessageDocument>) ||
-  model<ContactMessageDocument>("ContactMessage", contactMessageSchema);
+// Let Mongoose infer types — no Document unions, no Model<> generics
+export type ContactMessage = InferSchemaType<typeof contactMessageSchema>;
 
-export default ContactMessage;
+const ContactMessageModel =
+  models.ContactMessage || model("ContactMessage", contactMessageSchema);
+
+export default ContactMessageModel;
