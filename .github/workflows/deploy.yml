@@ -1,0 +1,37 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # No need to checkout the repo on the runner because we pull on the VPS.
+      # If you prefer rsync deployments, I can show that variant too.
+
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{ secrets.DEPLOY_KEY }}
+        # If your key has a passphrase:
+        # env:
+        #   SSH_PASSPHRASE: ${{ secrets.DEPLOY_KEY_PASSPHRASE }}
+
+      - name: (Optional) Trust VPS host key
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.VPS_PORT || 22 }}" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Run deploy script on VPS
+        run: |
+          ssh -p "${{ secrets.VPS_PORT || 22 }}" -o StrictHostKeyChecking=yes \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            'bash -lc "cd /srv/asdesigns && ./deploy.sh"'
