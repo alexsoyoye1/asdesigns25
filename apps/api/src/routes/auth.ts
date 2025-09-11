@@ -1,120 +1,94 @@
+// apps/api/src/routes/auth.ts
 import { Router } from "express";
+import { z } from "zod";
 import bcrypt from "bcryptjs";
-import cookie from "cookie";
-import { LoginSchema, MeSchema } from "@asdesigns/shared";
-import { getDb } from "../db";
-import User from "../models/User";
-import { env } from "../env";
-import { signAccess, signRefresh, verifyRefresh } from "../auth/jwt";
-import { authRequired } from "../middleware/auth";
+import UserModel from "../models/User"; // <-- default export only (value)
+import { signAccess, signRefresh } from "../auth/jwt"; // <-- matches your jwt.ts
 
 const router = Router();
-const ACCESS_COOKIE = env.COOKIE_NAME;
 
-/** DEV-ONLY: seed one admin account if none exists */
-router.post("/dev/seed-admin", async (_req, res) => {
-  if (process.env.NODE_ENV === "production") return res.status(404).end();
-
-  await getDb();
-
-  const existing = await User.findOne({ role: "admin" }).lean().exec(); // ✅ lean+exec
-  if (existing) return res.json({ ok: true, note: "Admin exists" });
-
-  const hash = await bcrypt.hash("admin123", 10);
-  const u = await User.create({
-    name: "Admin",
-    email: "admin@local",
-    passwordHash: hash,
-    role: "admin",
-  }); // create is fine
-
-  return res.json({ ok: true, admin: { id: String(u._id), email: u.email } });
+// ===== Validation Schemas =====
+const RegisterSchema = z.object({
+  name: z.string().min(1, "name required"),
+  email: z.string().email(),
+  password: z.string().min(6),
+  role: z.enum(["admin", "employee"]).default("employee"),
 });
 
-/** POST /auth/login */
-router.post("/login", async (req, res) => {
-  const parsed = LoginSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ ok: false, error: parsed.error.flatten() });
-  }
+const LoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
 
-  await getDb();
+const SeedSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(6),
+});
 
-  const { email, password } = parsed.data;
-  const user = await User.findOne({ email }).exec(); // ✅ exec
-  if (!user)
-    return res.status(401).json({ ok: false, error: "INVALID_CREDENTIALS" });
+// ===== Seed an admin once =====
+router.post("/seed-admin", async (req, res) => {
+  const { name, email, password } = SeedSchema.parse(req.body);
 
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok)
-    return res.status(401).json({ ok: false, error: "INVALID_CREDENTIALS" });
+  const already = await UserModel.findOne({ role: "admin" }).lean().exec();
+  if (already) return res.status(409).json({ error: "Admin already exists" });
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await UserModel.create({ name, email, passwordHash, role: "admin" });
+  return res.json({ ok: true });
+});
+
+// ===== Register =====
+router.post("/register", async (req, res) => {
+  const { name, email, password, role } = RegisterSchema.parse(req.body);
+
+  const exists = await UserModel.findOne({ email }).lean().exec();
+  if (exists)
+    return res.status(400).json({ message: "Email already registered" });
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  const user = await UserModel.create({ name, email, passwordHash, role });
 
   const payload = {
     sub: String(user._id),
     role: user.role,
     email: user.email,
     name: user.name,
-  } as const;
-  const access = signAccess(payload);
-  const refresh = signRefresh(payload);
+  };
 
-  const accessCookie = cookie.serialize("access_token", access, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 15,
-  });
-  const refreshCookie = cookie.serialize("refresh_token", refresh, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  const accessToken = signAccess(payload);
+  const refreshToken = signRefresh(payload);
 
-  res.setHeader("Set-Cookie", [accessCookie, refreshCookie]);
-  return res.json({ ok: true });
+  return res.json({ accessToken, refreshToken });
 });
 
-/** POST /auth/refresh */
-router.post("/refresh", async (req, res) => {
-  const rt = req.cookies?.refresh_token as string | undefined;
-  if (!rt) return res.status(401).json({ ok: false, error: "NO_REFRESH" });
-  try {
-    const payload = verifyRefresh(rt);
-    const access = signAccess(payload);
-    const accessCookie = cookie.serialize("access_token", access, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 15,
-    });
-    res.setHeader("Set-Cookie", accessCookie);
-    return res.json({ ok: true });
-  } catch {
-    return res.status(401).json({ ok: false, error: "INVALID_REFRESH" });
-  }
+// ===== Login =====
+router.post("/login", async (req, res) => {
+  const { email, password } = LoginSchema.parse(req.body);
+
+  const user = await UserModel.findOne({ email }).exec();
+  if (!user) return res.status(401).json({ message: "Invalid credentials" });
+
+  const ok = await bcrypt.compare(password, user.passwordHash);
+  if (!ok) return res.status(401).json({ message: "Invalid credentials" });
+
+  const payload = {
+    sub: String(user._id),
+    role: user.role,
+    email: user.email,
+    name: user.name,
+  };
+
+  const accessToken = signAccess(payload);
+  const refreshToken = signRefresh(payload);
+
+  return res.json({ accessToken, refreshToken });
 });
 
-/** GET /auth/me */
-router.get("/me", authRequired, async (req, res) => {
-  const { sub, email, name, role } = (req as any).user;
-  const me = { id: sub, email, name, role };
-  const check = MeSchema.safeParse(me);
-  if (!check.success)
-    return res.status(500).json({ ok: false, error: "INVALID_ME" });
-  return res.json({ ok: true, me });
-});
-
-/** POST /auth/logout */
+// ===== Logout (optional) =====
 router.post("/logout", (_req, res) => {
-  res.setHeader("Set-Cookie", [
-    cookie.serialize("access_token", "", { path: "/", maxAge: 0 }),
-    cookie.serialize("refresh_token", "", { path: "/", maxAge: 0 }),
-  ]);
-  return res.json({ ok: true });
+  res.clearCookie("as_auth", { path: "/" });
+  res.json({ ok: true });
 });
 
 export default router;

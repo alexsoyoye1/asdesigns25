@@ -1,6 +1,22 @@
-import { Schema, model, models, InferSchemaType } from "mongoose";
+import { Schema, model, models, Document, Model } from "mongoose";
 
-const contactMessageSchema = new Schema(
+export interface IContactMessage {
+  name: string;
+  email: string;
+  message: string;
+  phone?: string;
+  website?: string;
+  budgetAmount?: number;
+  currency?: "NGN" | "USD" | "GBP";
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IContactMessageDocument extends IContactMessage, Document {}
+
+export interface IContactMessageModel extends Model<IContactMessageDocument> {}
+
+const contactMessageSchema = new Schema<IContactMessageDocument>(
   {
     name: { type: String, required: true },
     email: { type: String, required: true },
@@ -13,10 +29,11 @@ const contactMessageSchema = new Schema(
   { timestamps: true }
 );
 
-// Let Mongoose infer types — no Document unions, no Model<> generics
-export type ContactMessage = InferSchemaType<typeof contactMessageSchema>;
-
-const ContactMessageModel =
-  models.ContactMessage || model("ContactMessage", contactMessageSchema);
+const ContactMessageModel: IContactMessageModel =
+  models.ContactMessage ||
+  model<IContactMessageDocument, IContactMessageModel>(
+    "ContactMessage",
+    contactMessageSchema
+  );
 
 export default ContactMessageModel;

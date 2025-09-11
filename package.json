@@ -1,7 +1,10 @@
 {
   "name": "asdesigns-monorepo",
   "private": true,
-  "workspaces": ["apps/*", "shared"],
+  "workspaces": [
+    "apps/*",
+    "shared"
+  ],
   "scripts": {
     "build": "npm run -w shared build && npm run -w apps/api build && npm run -w apps/web build",
     "dev": "concurrently -n API,WEB -c magenta,cyan \"npm:dev:api\" \"npm:dev:web\"",
@@ -13,5 +16,8 @@
   "devDependencies": {
     "concurrently": "^8.2.2",
     "typescript": "^5.6.2"
+  },
+  "dependencies": {
+    "bcrypt": "^6.0.0"
   }
 }
