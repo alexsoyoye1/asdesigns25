@@ -1,37 +1,34 @@
 name: Deploy to VPS
 
 on:
+  # Triggers the workflow on push events to the main branch
   push:
     branches: [main]
-  workflow_dispatch: {}
-
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   deploy:
+    # The type of runner that the job will run on
     runs-on: ubuntu-latest
+
     steps:
-      # No need to checkout the repo on the runner because we pull on the VPS.
-      # If you prefer rsync deployments, I can show that variant too.
-
-      - name: Add SSH key
-        uses: webfactory/ssh-agent@v0.9.0
+      # This step connects to your VPS via SSH and runs the deployment script.
+      - name: Trigger deployment script on VPS
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          ssh-private-key: |
-            ${{ secrets.DEPLOY_KEY }}
-        # If your key has a passphrase:
-        # env:
-        #   SSH_PASSPHRASE: ${{ secrets.DEPLOY_KEY_PASSPHRASE }}
+          # Your VPS IP address or hostname
+          host: ${{ secrets.VPS_HOST }}
 
-      - name: (Optional) Trust VPS host key
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.VPS_PORT || 22 }}" "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+          # The username for your VPS
+          username: ${{ secrets.VPS_USER }}
 
-      - name: Run deploy script on VPS
-        run: |
-          ssh -p "${{ secrets.VPS_PORT || 22 }}" -o StrictHostKeyChecking=yes \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'bash -lc "cd /srv/asdesigns && ./deploy.sh"'
+          # The private SSH key to authenticate
+          key: ${{ secrets.DEPLOY_KEY }}
+
+          # The SSH port, default is 22
+          port: 22
+
+          # The command to run on the VPS.
+          # It navigates to the script's directory and executes it.
+          script: |
+            cd /srv/asdesigns
+            bash ./deploy.sh
