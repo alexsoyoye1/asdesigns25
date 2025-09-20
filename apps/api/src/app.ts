@@ -21,14 +21,14 @@ app.use(morgan("dev"));
 app.use(cookieParser());
 
 // health & public routes
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
-app.use("/api/ping", pingRouter);
-app.use("/api/auth", authRouter);
-app.use("/api/contact", contactRouter);
+app.get("/health", (_req, res) => res.json({ ok: true }));
+app.use("/ping", pingRouter);
+app.use("/auth", authRouter);
+app.use("/contact", contactRouter);
 
 // protected admin routes
 app.use(
-  "/api/admin",
+  "/admin",
   authRequired,
   rolesRequired("admin", "employee"),
   adminRouter
