@@ -19,6 +19,7 @@ const EnvSchema = z.object({
 
   // --- Web ---
   WEB_ORIGIN: z.string().url(),
+  NEXT_PUBLIC_API_URL: z.string().url(),
 
   // --- Database ---
   MONGO_URI: z.string().min(10),
